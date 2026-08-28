@@ -23,7 +23,7 @@ AI决策权重 ──→ 组织非人性化感知
 - 两道材料理解检查
 - AIP1–AIP3与DF1–DF3操纵检验
 - OD1–OD5组织非人性化感知量表
-- 人口统计及控制变量
+- 人口统计及控制变量（工作经历区分“没有任何工作经历”和“只有实习经历”，不询问是否有直属主管）
 - 页面停留时间和失焦次数记录
 - 刷新后恢复原分组与当前进度
 - Supabase PostgreSQL集中存储
@@ -47,11 +47,9 @@ GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖自建服�
 - GitHub仓库：<https://github.com/2736181935-cloud/HRU>
 - 仓库可见性：公开
 - 默认分支：`main`
-- Pages工作流：已提交，尚需在仓库Settings → Pages中启用GitHub Actions
-- 预计问卷地址：<https://2736181935-cloud.github.io/HRU/>
-- Supabase表结构：需由项目所有者在SQL Editor执行`supabase/schema.sql`
-
-在Pages启用和Supabase SQL执行完成前，预计网址可能返回404，集中上传功能也不会生效。
+- Pages工作流：已启用，推送到`main`后自动发布
+- 问卷地址：<https://2736181935-cloud.github.io/HRU/>
+- Supabase表结构：由项目所有者在SQL Editor执行`supabase/schema.sql`
 
 ## GitHub Pages与Supabase部署
 
@@ -73,7 +71,8 @@ GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖自建服�
 │  ├─ supabase.js         安全RPC客户端
 │  └─ styles.css
 ├─ supabase/
-│  └─ schema.sql          数据表、RLS和安全RPC函数
+│  ├─ schema.sql          数据表、RLS和安全RPC函数
+│  └─ clear_all_data.sql  正式收集前清空问卷数据
 ├─ .github/workflows/
 │  └─ pages.yml           GitHub Pages自动发布
 ├─ lib/experiment.mjs      分组、步骤与CSV工具
@@ -125,6 +124,8 @@ npm test
 
 研究者直接登录Supabase控制台，在Table Editor中查看`participants`、`responses`、`step_events`和`quality_flags`，并使用控制台导出功能取得CSV。本项目按照当前要求不设置每日自动备份，也不设置每6小时备份。
 
+正式收集前如需清除全部预测试记录，在Supabase控制台打开SQL Editor，执行`supabase/clear_all_data.sql`。该脚本只清空上述四张问卷数据表并重置自增编号，不删除表结构、RPC函数或`study_admins`管理员名单；末尾查询应显示四张表的记录数均为0。
+
 Supabase中的`participants`为一名参与者一行，`responses`为一道题一行的长格式。导出后可按`participant_id`连接，并转换为分析所需的宽格式。DF2为反向题，分析时计算：
 
 ```text
@@ -159,7 +160,6 @@ OD_mean = mean(OD1, OD2, OD3, OD4, OD5)
 ## 当前限制
 
 - GitHub Pages与Supabase在中国大陆的实际访问速度会受到用户网络环境影响，正式收集前需要多网络实测。
-- 当前Pages尚未在仓库设置中启用，公开网址仍可能返回404。
 - Supabase SQL执行前，问卷无法创建云端参与者记录。
 - 未接入招募平台支付或完成码回传API。
 - 未设置项目级自动备份，数据恢复能力取决于Supabase当前套餐。
