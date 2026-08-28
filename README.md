@@ -27,9 +27,8 @@ AI决策权重 ──→ 组织非人性化感知
 - 页面停留时间和失焦次数记录
 - 刷新后恢复原分组与当前进度
 - Supabase PostgreSQL集中存储
-- 管理员邮箱魔法链接登录
 - 四组数量、完成情况及质量标记展示
-- CSV原始数据导出
+- 通过Supabase控制台查看和导出原始数据
 
 ## 技术结构
 
@@ -50,7 +49,6 @@ GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖自建服�
 - 默认分支：`main`
 - Pages工作流：已提交，尚需在仓库Settings → Pages中启用GitHub Actions
 - 预计问卷地址：<https://2736181935-cloud.github.io/HRU/>
-- 预计后台地址：<https://2736181935-cloud.github.io/HRU/admin.html>
 - Supabase表结构：需由项目所有者在SQL Editor执行`supabase/schema.sql`
 
 在Pages启用和Supabase SQL执行完成前，预计网址可能返回404，集中上传功能也不会生效。
@@ -59,30 +57,21 @@ GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖自建服�
 
 1. 在Supabase项目的SQL Editor中完整执行`supabase/schema.sql`。
    - 如果曾经执行过`169bab0`之前的旧脚本，并看到`gen_random_bytes(integer) does not exist`，再执行`supabase/hotfix_pgcrypto.sql`。
-2. 确认`public/config.js`中的项目URL、publishable key和管理员邮箱。
-3. 在Supabase Authentication → URL Configuration中配置：
-
-   ```text
-   Site URL: https://2736181935-cloud.github.io/HRU/
-   Redirect URL: https://2736181935-cloud.github.io/HRU/admin.html
-   ```
-
-4. 推送到`main`分支后，`.github/workflows/pages.yml`自动发布`public/`目录。
-5. 在GitHub仓库Settings → Pages中将Source设置为GitHub Actions。
+2. 确认`public/config.js`中的项目URL和publishable key。
+3. 推送到`main`分支后，`.github/workflows/pages.yml`自动发布`public/`目录。
+4. 在GitHub仓库Settings → Pages中将Source设置为GitHub Actions。
 
 数据库密码、service role key和GitHub令牌都不得写入仓库。`publishable key`是为浏览器公开使用的密钥，真正的数据权限由RLS和安全RPC控制。
 
 ## 目录
 
 ```text
-├─ public/                 前端与管理后台
+├─ public/                 问卷前端
 │  ├─ index.html
 │  ├─ app.js
-│  ├─ config.js           Supabase公开配置与管理员邮箱
-│  ├─ supabase.js         RPC及邮箱认证客户端
-│  ├─ styles.css
-│  ├─ admin.html
-│  └─ admin.js
+│  ├─ config.js           Supabase公开配置
+│  ├─ supabase.js         安全RPC客户端
+│  └─ styles.css
 ├─ supabase/
 │  └─ schema.sql          数据表、RLS和安全RPC函数
 ├─ .github/workflows/
@@ -120,7 +109,7 @@ GitHub Pages版本是静态前端，可在项目目录启动任意静态文件�
 npx serve public
 ```
 
-本地页面仍会把测试数据写入配置的Supabase项目，因此测试完成后应在管理后台或Supabase控制台清理预测试数据。
+本地页面仍会把测试数据写入配置的Supabase项目，因此测试完成后应在Supabase控制台清理预测试数据。
 
 ## 测试
 
@@ -134,9 +123,9 @@ npm test
 
 集中数据保存在Supabase PostgreSQL中，不保存在GitHub仓库。试用者浏览器仅保存匿名参与者编号和会话令牌，用于刷新后恢复原分组与进度。
 
-管理员通过邮箱魔法链接登录`admin.html`，验证管理员身份后可查看四组分布、完成状态、质量标记并导出CSV。本项目按照当前要求不设置每日自动备份，也不设置每6小时备份。
+研究者直接登录Supabase控制台，在Table Editor中查看`participants`、`responses`、`step_events`和`quality_flags`，并使用控制台导出功能取得CSV。本项目按照当前要求不设置每日自动备份，也不设置每6小时备份。
 
-CSV为一名参与者一行的宽格式，包含实验条件、状态、时间、完成码及所有原始答案。DF2为反向题，分析时计算：
+Supabase中的`participants`为一名参与者一行，`responses`为一道题一行的长格式。导出后可按`participant_id`连接，并转换为分析所需的宽格式。DF2为反向题，分析时计算：
 
 ```text
 DF2_R = 8 - DF2
@@ -150,8 +139,6 @@ OD_mean = mean(OD1, OD2, OD3, OD4, OD5)
 
 ## 安全说明
 
-- 管理后台使用Supabase Auth邮箱魔法链接，不保存固定后台密码。
-- 管理权限由JWT邮箱和`study_admins`表共同判断。
 - 数据表启用RLS，匿名浏览器无直接读写表的权限。
 - 问卷只通过受控的`security definer` RPC提交数据。
 - 会话令牌只以SHA-256哈希形式存入数据库，原始令牌仅保存在试用者浏览器。
@@ -163,12 +150,11 @@ OD_mean = mean(OD1, OD2, OD3, OD4, OD5)
 
 1. 执行`supabase/schema.sql`并确认无错误。
 2. 启用GitHub Pages的GitHub Actions发布源。
-3. 配置Supabase站点URL和管理员登录重定向URL。
-4. 确认绩效情景和两组反馈材料最终版本。
-5. 用四个全新浏览器会话逐组验收。
-6. 验证刷新恢复、重复提交阻止、邮箱登录和CSV导出。
-7. 清理预测试数据后再开始正式收集。
-8. 明确伦理审批、隐私告知、样本排除和数据保存期限。
+3. 确认绩效情景和两组反馈材料最终版本。
+4. 用四个全新浏览器会话逐组验收。
+5. 验证刷新恢复、重复提交阻止和Supabase数据写入。
+6. 清理预测试数据后再开始正式收集。
+7. 明确伦理审批、隐私告知、样本排除和数据保存期限。
 
 ## 当前限制
 
