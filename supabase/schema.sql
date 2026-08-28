@@ -77,8 +77,8 @@ create or replace function public.start_participant(p_source text default '')
 returns jsonb language plpgsql security definer set search_path = public
 as $$
 declare
-  v_token text := encode(gen_random_bytes(32), 'hex');
-  v_public_id text := 'P-' || upper(substr(encode(gen_random_bytes(8), 'hex'), 1, 10));
+  v_token text := encode(extensions.gen_random_bytes(32), 'hex');
+  v_public_id text := 'P-' || upper(substr(encode(extensions.gen_random_bytes(8), 'hex'), 1, 10));
   v_condition text;
   v_ai_weight text;
   v_feedback text;
@@ -98,7 +98,7 @@ begin
   v_feedback := case when v_condition in ('A','C') then 'developmental' else 'non_developmental' end;
 
   insert into public.participants(public_id, session_token_hash, condition_code, ai_weight, feedback, source)
-  values (v_public_id, encode(digest(v_token, 'sha256'), 'hex'), v_condition, v_ai_weight, v_feedback, left(coalesce(p_source,''),100));
+  values (v_public_id, encode(extensions.digest(v_token, 'sha256'), 'hex'), v_condition, v_ai_weight, v_feedback, left(coalesce(p_source,''),100));
 
   return jsonb_build_object('publicId',v_public_id,'sessionToken',v_token,'currentStep','scenario','aiWeight',v_ai_weight,'feedback',v_feedback);
 end;
@@ -110,7 +110,7 @@ as $$
 declare v_p public.participants%rowtype;
 begin
   select * into v_p from public.participants
-  where public_id=p_public_id and session_token_hash=encode(digest(p_session_token,'sha256'),'hex');
+  where public_id=p_public_id and session_token_hash=encode(extensions.digest(p_session_token,'sha256'),'hex');
   if not found then raise exception '参与者不存在或凭证无效'; end if;
   return jsonb_build_object('publicId',v_p.public_id,'currentStep',v_p.current_step,'status',v_p.status,'aiWeight',v_p.ai_weight,'feedback',v_p.feedback,'completionCode',v_p.completion_code);
 end;
@@ -133,7 +133,7 @@ declare
   v_feedback_correct text;
 begin
   select * into v_p from public.participants
-  where public_id=p_public_id and session_token_hash=encode(digest(p_session_token,'sha256'),'hex') for update;
+  where public_id=p_public_id and session_token_hash=encode(extensions.digest(p_session_token,'sha256'),'hex') for update;
   if not found then raise exception '参与者不存在或凭证无效'; end if;
   if v_p.status='completed' then raise exception '问卷已完成'; end if;
   if v_p.current_step<>p_step_code then raise exception '页面顺序不正确'; end if;
@@ -174,11 +174,11 @@ as $$
 declare v_p public.participants%rowtype; v_code text;
 begin
   select * into v_p from public.participants
-  where public_id=p_public_id and session_token_hash=encode(digest(p_session_token,'sha256'),'hex') for update;
+  where public_id=p_public_id and session_token_hash=encode(extensions.digest(p_session_token,'sha256'),'hex') for update;
   if not found then raise exception '参与者不存在或凭证无效'; end if;
   if v_p.status='completed' then return jsonb_build_object('completionCode',v_p.completion_code); end if;
   if v_p.current_step<>'complete' then raise exception '问卷尚未完成'; end if;
-  v_code := 'OD-' || upper(substr(encode(gen_random_bytes(8),'hex'),1,8));
+  v_code := 'OD-' || upper(substr(encode(extensions.gen_random_bytes(8),'hex'),1,8));
   update public.participants set status='completed',completed_at=now(),last_active_at=now(),completion_code=v_code where id=v_p.id;
   return jsonb_build_object('completionCode',v_code);
 end;
