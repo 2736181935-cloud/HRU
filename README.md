@@ -58,6 +58,7 @@ GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖自建服�
 ## GitHub Pages与Supabase部署
 
 1. 在Supabase项目的SQL Editor中完整执行`supabase/schema.sql`。
+   - 如果曾经执行过`169bab0`之前的旧脚本，并看到`gen_random_bytes(integer) does not exist`，再执行`supabase/hotfix_pgcrypto.sql`。
 2. 确认`public/config.js`中的项目URL、publishable key和管理员邮箱。
 3. 在Supabase Authentication → URL Configuration中配置：
 
