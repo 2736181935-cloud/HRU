@@ -23,7 +23,7 @@ function collect(codes) { const result={}; for (const code of codes) { const val
 function nextButton(label='继续') { return `<div class="actions"><button id="next" class="btn btn-primary">${label}</button></div>`; }
 
 async function consent() {
-  card(`<div class="eyebrow">学术研究问卷</div><h1>AI辅助绩效管理系统认知研究</h1><p>您好！本调查旨在了解企业员工对AI辅助绩效管理系统的认知与感受。调查匿名进行，数据仅用于学术研究。</p><div class="notice">参与完全自愿。您可以选择不参与，也可以在提交前关闭页面退出。</div><p>请选择是否同意参与本研究：</p><div class="options">${choice('CONSENT','yes','我已阅读上述说明，并自愿参与本研究')}${choice('CONSENT','no','我不同意参与本研究')}</div>${nextButton('确认选择')}`);
+  card(`<div class="eyebrow">学术研究问卷</div><h1>AI辅助绩效管理系统认知研究</h1><p>尊敬的先生/女士：</p><p>您好！首先非常感谢您参加本次调查！本次调查旨在了解企业员工对AI辅助绩效管理系统的认知与感受。调查数据完全保密且仅用于学术研究，请您放心并按照真实想法填写问卷。为了感谢您的支持与配合，在您完成问卷后，我们将通过平台为您发放报酬X元。请注意，若您的报告缺失或中途放弃，将导致您的问卷被遗憾作废，无法获得相应报酬，再次感谢您的配合，祝您生活愉快！</p><p>[单选题]我已认真阅读上述材料，并愿意参与本调查。</p><div class="options">${choice('CONSENT','yes','是')}${choice('CONSENT','no','否')}</div>${nextButton('确认选择')}`);
   document.querySelector('#next').onclick = async () => {
     const answer=selected('CONSENT'); if(!answer) return error('请选择是否同意参与');
     if(answer==='no') return card('<div class="success"><h1>感谢您的关注</h1><p>您选择不参与本研究，本网站不会保存您的问卷答案。</p></div>');
