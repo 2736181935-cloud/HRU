@@ -26,8 +26,8 @@ AI决策权重 ──→ 组织非人性化感知
 - 人口统计及控制变量
 - 页面停留时间和失焦次数记录
 - 刷新后恢复原分组与当前进度
-- SQLite持久化存储
-- 密码保护的管理后台
+- Supabase PostgreSQL集中存储
+- 管理员邮箱魔法链接登录
 - 四组数量、完成情况及质量标记展示
 - CSV原始数据导出
 
@@ -41,13 +41,31 @@ Supabase安全RPC
 PostgreSQL + RLS
 ```
 
-`server.mjs`与SQLite保留用于本地离线开发；GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖本机服务器。
+GitHub Pages版本使用`public/supabase.js`连接Supabase，不依赖自建服务器。`server.mjs`仅作为早期本地离线原型保留，不参与GitHub Pages部署。
+
+## 当前部署状态
+
+- GitHub仓库：<https://github.com/2736181935-cloud/HRU>
+- 仓库可见性：公开
+- 默认分支：`main`
+- Pages工作流：已提交，尚需在仓库Settings → Pages中启用GitHub Actions
+- 预计问卷地址：<https://2736181935-cloud.github.io/HRU/>
+- 预计后台地址：<https://2736181935-cloud.github.io/HRU/admin.html>
+- Supabase表结构：需由项目所有者在SQL Editor执行`supabase/schema.sql`
+
+在Pages启用和Supabase SQL执行完成前，预计网址可能返回404，集中上传功能也不会生效。
 
 ## GitHub Pages与Supabase部署
 
 1. 在Supabase项目的SQL Editor中完整执行`supabase/schema.sql`。
 2. 确认`public/config.js`中的项目URL、publishable key和管理员邮箱。
-3. 在Supabase Authentication的URL Configuration中，将站点URL和重定向URL加入允许列表。
+3. 在Supabase Authentication → URL Configuration中配置：
+
+   ```text
+   Site URL: https://2736181935-cloud.github.io/HRU/
+   Redirect URL: https://2736181935-cloud.github.io/HRU/admin.html
+   ```
+
 4. 推送到`main`分支后，`.github/workflows/pages.yml`自动发布`public/`目录。
 5. 在GitHub仓库Settings → Pages中将Source设置为GitHub Actions。
 
@@ -59,14 +77,18 @@ PostgreSQL + RLS
 ├─ public/                 前端与管理后台
 │  ├─ index.html
 │  ├─ app.js
+│  ├─ config.js           Supabase公开配置与管理员邮箱
+│  ├─ supabase.js         RPC及邮箱认证客户端
 │  ├─ styles.css
 │  ├─ admin.html
 │  └─ admin.js
+├─ supabase/
+│  └─ schema.sql          数据表、RLS和安全RPC函数
+├─ .github/workflows/
+│  └─ pages.yml           GitHub Pages自动发布
 ├─ lib/experiment.mjs      分组、步骤与CSV工具
 ├─ test/                   自动化测试
-├─ data/                   运行后生成，不提交版本库
-│  └─ study.db             SQLite数据库
-├─ server.mjs              后端与数据库初始化
+├─ server.mjs              本地离线原型，不参与Pages部署
 ├─ package.json
 └─ .env.example
 ```
@@ -75,7 +97,7 @@ PostgreSQL + RLS
 
 ### `participants`
 
-保存匿名编号、实验条件、进度、状态、问卷版本、开始与完成时间、完成码和脱敏设备信息。
+保存匿名编号、不可逆会话令牌哈希、实验条件、进度、状态、问卷版本、开始与完成时间及完成码。
 
 ### `responses`
 
@@ -89,44 +111,15 @@ PostgreSQL + RLS
 
 保存理解检查失败等数据质量标记。系统只标记，不自动删除样本。
 
-## 环境配置
+## 本地预览
 
-复制`.env.example`为`.env`，至少修改：
-
-```env
-PORT=3000
-HOST=127.0.0.1
-ADMIN_PASSWORD=一个足够长且唯一的后台密码
-IP_HASH_SALT=一个随机且足够长的字符串
-STUDY_MODE=pilot
-```
-
-说明：
-
-- `HOST=127.0.0.1`仅允许本机访问，适合本地测试。
-- 局域网访问可以改为`HOST=0.0.0.0`。
-- 正式公网部署应由Nginx或Caddy提供HTTPS反向代理。
-- 预测试使用`STUDY_MODE=pilot`；正式收集前清理预测试数据库并改为`formal`。
-- 不要把`.env`提交到Git。
-
-## 启动
-
-使用系统Node.js：
+GitHub Pages版本是静态前端，可在项目目录启动任意静态文件服务器并将根目录指向`public/`。例如：
 
 ```bash
-node server.mjs
+npx serve public
 ```
 
-或使用npm脚本：
-
-```bash
-npm start
-```
-
-启动后访问：
-
-- 问卷：<http://127.0.0.1:3000>
-- 后台：<http://127.0.0.1:3000/admin>
+本地页面仍会把测试数据写入配置的Supabase项目，因此测试完成后应在管理后台或Supabase控制台清理预测试数据。
 
 ## 测试
 
@@ -138,20 +131,9 @@ npm test
 
 ## 数据位置与导出
 
-运行后数据库位于：
+集中数据保存在Supabase PostgreSQL中，不保存在GitHub仓库。试用者浏览器仅保存匿名参与者编号和会话令牌，用于刷新后恢复原分组与进度。
 
-```text
-data/study.db
-```
-
-SQLite还可能生成：
-
-```text
-data/study.db-wal
-data/study.db-shm
-```
-
-不要在服务运行时仅复制`study.db`作为数据库备份；如需取得分析数据，请登录管理后台并点击“导出CSV”。本项目按照当前要求不设置每日自动备份，也不设置每6小时备份。
+管理员通过邮箱魔法链接登录`admin.html`，验证管理员身份后可查看四组分布、完成状态、质量标记并导出CSV。本项目按照当前要求不设置每日自动备份，也不设置每6小时备份。
 
 CSV为一名参与者一行的宽格式，包含实验条件、状态、时间、完成码及所有原始答案。DF2为反向题，分析时计算：
 
@@ -167,29 +149,31 @@ OD_mean = mean(OD1, OD2, OD3, OD4, OD5)
 
 ## 安全说明
 
-- 管理员密码来自服务端环境变量，不下发到前端。
-- 登录成功后使用HttpOnly、SameSite严格Cookie。
-- 数据库文件不对公网提供。
-- 原始IP不落库，只保存带盐SHA-256哈希。
-- 问卷组别由后端决定，前端不能提交或修改分组。
+- 管理后台使用Supabase Auth邮箱魔法链接，不保存固定后台密码。
+- 管理权限由JWT邮箱和`study_admins`表共同判断。
+- 数据表启用RLS，匿名浏览器无直接读写表的权限。
+- 问卷只通过受控的`security definer` RPC提交数据。
+- 会话令牌只以SHA-256哈希形式存入数据库，原始令牌仅保存在试用者浏览器。
+- 四组均衡分配由数据库事务和 advisory lock执行，前端不能指定或修改分组。
 - 已完成问卷不能覆盖提交。
-- 公网部署必须配置HTTPS、防火墙和反向代理限流。
-- 当前管理员会话保存在内存中，服务重启后需要重新登录。
+- 数据库密码、`service_role`密钥和GitHub令牌不得写入仓库。
 
 ## 正式上线检查清单
 
-1. 修改管理员密码和哈希盐。
-2. 将研究模式改为`formal`。
-3. 确认绩效情景和两组反馈材料最终版本。
-4. 用四个全新浏览器会话逐组验收。
-5. 验证刷新恢复、重复提交阻止和CSV导出。
-6. 配置HTTPS和只开放必要端口。
-7. 明确伦理审批、隐私告知、样本排除和数据保存期限。
+1. 执行`supabase/schema.sql`并确认无错误。
+2. 启用GitHub Pages的GitHub Actions发布源。
+3. 配置Supabase站点URL和管理员登录重定向URL。
+4. 确认绩效情景和两组反馈材料最终版本。
+5. 用四个全新浏览器会话逐组验收。
+6. 验证刷新恢复、重复提交阻止、邮箱登录和CSV导出。
+7. 清理预测试数据后再开始正式收集。
+8. 明确伦理审批、隐私告知、样本排除和数据保存期限。
 
 ## 当前限制
 
-- 当前是单机部署，适合预测试和中小规模收集。
-- SQLite不适合大量并发写入；高并发正式收集可迁移到PostgreSQL。
+- GitHub Pages与Supabase在中国大陆的实际访问速度会受到用户网络环境影响，正式收集前需要多网络实测。
+- 当前Pages尚未在仓库设置中启用，公开网址仍可能返回404。
+- Supabase SQL执行前，问卷无法创建云端参与者记录。
 - 未接入招募平台支付或完成码回传API。
-- 未设置自动备份，服务器或磁盘故障可能造成不可恢复的数据丢失。
+- 未设置项目级自动备份，数据恢复能力取决于Supabase当前套餐。
 - 尚未基于预测试数据检验量表信度、操纵强度或材料等价性。
